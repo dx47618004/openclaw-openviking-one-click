@@ -1,38 +1,157 @@
-# OpenClaw + OpenViking One-Click Setup
+# OpenClaw + OpenViking Ultimate Setup
 
-A practical, reproducible starter for wiring **OpenClaw** to **OpenViking** in remote mode, based on a real successful setup on macOS.
+[中文说明 / Chinese README](./README_zh.md)
 
-This repo is not pretending to be the official way. It is the **battle-tested shortcut**: the minimum useful pieces, the actual config shape, the common pitfall, and a small bootstrap script so people can get to a working state faster.
+A practical, beginner-friendly guide for turning **OpenClaw** and **OpenViking** into one working stack.
 
-## What this gives you
+This repo is based on a real successful setup, but the goal here is not to brag about one lucky run. The goal is simpler: make the integration understandable, reproducible, and much less annoying for the next person.
 
-- a small `install.sh` bootstrap that patches `~/.openclaw/openclaw.json`
-- OpenViking registered as the OpenClaw context engine
-- `autoRecall` + `autoCapture` turned on
-- a simple verification script
-- a write-up of what actually worked and what was misleading
+## What this repo is
 
-## Who this is for
+This is an **integration starter** for:
 
-Use this if you already have:
+- installing or connecting OpenViking
+- wiring OpenViking into OpenClaw as the context engine
+- enabling `autoRecall` and `autoCapture`
+- verifying that the whole thing is actually alive
+- explaining what is truly working vs what still needs separate validation
 
-- OpenClaw installed and running locally
-- an OpenViking service reachable over HTTP
-- an OpenViking API key
+## What this repo is not
 
-If you want a magical full installer for both products from scratch, this repo is **not there yet**. Right now it focuses on the integration layer that people actually get stuck on.
+It is **not**:
 
-## Quick start
+- official OpenClaw documentation
+- official OpenViking documentation
+- a fake “AI memory solved forever” landing page
+- a guaranteed all-platform installer for every environment on earth
+
+It is a practical field guide plus a few useful scripts.
+
+## Architecture
+
+The high-level relationship is this:
+
+```mermaid
+flowchart LR
+    U[User / Chat Surface] --> OC[OpenClaw Runtime]
+    OC --> CE[OpenViking context-engine plugin]
+    CE --> API[OpenViking HTTP API]
+    API --> SESS[Sessions / Archives]
+    API --> MEM[Long-term Memories]
+    API --> IDX[Embedding / Retrieval]
+
+    OC --> WF[Workspace memory files\nMEMORY.md + memory/YYYY-MM-DD.md]
+
+    WF -. human-readable continuity .-> OC
+    MEM -. retrieved context .-> OC
+    SESS -. archived history / summaries .-> OC
+```
+
+More detail: see [docs/architecture.md](./docs/architecture.md).
+
+## Official docs you should keep nearby
+
+### OpenClaw
+
+- OpenClaw docs: <https://docs.openclaw.ai>
+- OpenClaw install docs: <https://docs.openclaw.ai/install>
+- OpenClaw installer docs: <https://docs.openclaw.ai/install/installer>
+- OpenClaw macOS docs: <https://docs.openclaw.ai/platforms/macos>
+
+### OpenViking
+
+- OpenViking GitHub: <https://github.com/volcengine/OpenViking>
+- OpenViking plugin / integration docs usually live in the upstream OpenViking repo under the OpenClaw plugin examples and install docs.
+
+This repo is meant to complement those docs, not replace them.
+
+## Choose your path
+
+There are two main routes.
+
+### Path A — You already have OpenViking running
+
+Use this when:
+
+- OpenViking is already installed
+- you already have an API key if needed
+- your server is reachable, for example at `http://127.0.0.1:1933`
+
+This is the fastest path and the one this repo currently supports best.
+
+### Path B — You do **not** have OpenViking yet
+
+Use this when:
+
+- you want a full OpenClaw + OpenViking setup from near-zero
+- you still need to install the OpenViking side first
+- you want a more step-by-step beginner flow
+
+This repo gives you the structure, links, and integration flow for that route, but the actual OpenViking installation still follows upstream docs and tooling.
+
+## Step 1 — Install OpenClaw
+
+If you do not already have OpenClaw, install it first.
+
+Use the official docs:
+
+- <https://docs.openclaw.ai/install>
+- <https://docs.openclaw.ai/install/installer>
+
+After install, make sure this works:
+
+```bash
+openclaw status
+```
+
+If that command is dead or weird, don’t keep stacking problems. Fix OpenClaw first.
+
+## Step 2 — Decide whether OpenViking already exists
+
+### If OpenViking is already installed
+
+Make sure you know:
+
+- the OpenViking base URL, for example `http://127.0.0.1:1933`
+- the API key if your server requires one
+- the agent ID you want to use, usually `default`
+
+Also check that the server is alive:
+
+```bash
+curl http://127.0.0.1:1933/health
+```
+
+### If OpenViking is not installed yet
+
+Go install OpenViking first using upstream docs and tooling.
+
+Recommended upstream starting points:
+
+- OpenViking repo: <https://github.com/volcengine/OpenViking>
+- upstream install docs / plugin docs in that repo
+
+What you want, at minimum, before coming back here:
+
+- a running OpenViking service
+- a reachable HTTP endpoint
+- service-side config handled on the OpenViking side
+- any required API key prepared
+
+Once that exists, come back and continue with Step 3.
+
+## Step 3 — Wire OpenViking into OpenClaw
+
+This repo includes a simple remote-mode bootstrap:
 
 ```bash
 git clone https://github.com/dx47618004/openclaw-openviking-one-click.git
 cd openclaw-openviking-one-click
 chmod +x scripts/install.sh scripts/verify.sh
 ./scripts/install.sh --api-key YOUR_OPENVIKING_API_KEY
-./scripts/verify.sh
 ```
 
-### Optional flags
+If your OpenViking endpoint is not the default local one:
 
 ```bash
 ./scripts/install.sh \
@@ -42,193 +161,148 @@ chmod +x scripts/install.sh scripts/verify.sh
   --config ~/.openclaw/openclaw.json
 ```
 
-## What the script changes
+### What the script configures
 
-It patches your OpenClaw config with the equivalent of:
-
-```json
-{
-  "plugins": {
-    "entries": {
-      "openviking": {
-        "enabled": true,
-        "config": {
-          "mode": "remote",
-          "baseUrl": "http://127.0.0.1:1933",
-          "apiKey": "...",
-          "agentId": "default",
-          "autoRecall": true,
-          "autoCapture": true,
-          "emitStandardDiagnostics": true,
-          "logFindRequests": true,
-          "timeoutMs": 5000
-        }
-      }
-    },
-    "allow": ["openviking"],
-    "slots": {
-      "contextEngine": "openviking"
-    }
-  }
-}
-```
-
-It also restarts the OpenClaw gateway after writing the config.
-
-## Real-world notes from the successful setup
-
-This guide is based on a real working run where the plugin ended up in this shape:
+It patches OpenClaw so that:
 
 - `plugins.entries.openviking.enabled = true`
 - `plugins.entries.openviking.config.mode = remote`
-- `plugins.entries.openviking.config.baseUrl = http://127.0.0.1:1933`
+- `plugins.entries.openviking.config.baseUrl = ...`
 - `plugins.entries.openviking.config.autoRecall = true`
 - `plugins.entries.openviking.config.autoCapture = true`
 - `plugins.slots.contextEngine = openviking`
 
-And `openclaw status` showed the plugin as loaded and registered as context engine.
+Then it restarts the OpenClaw gateway.
 
-## What worked
+## Step 4 — Verify that it really works
 
-### 1) Remote mode was the clean path
-
-Using OpenViking in **remote mode** with a local HTTP endpoint was much simpler than trying to reason about hidden internal state. Once the endpoint was reachable and the plugin config was correct, OpenClaw could:
-
-- auto-recall context before prompt build
-- auto-capture after turns
-- register OpenViking as the context engine
-
-### 2) Human-readable memory files still matter
-
-Even with OpenViking attached, the practical continuity layer still benefits from human-readable files like:
-
-- `MEMORY.md`
-- `memory/YYYY-MM-DD.md`
-
-OpenViking is great as a backend/context system. But for day-to-day continuity, explicit text files are still the safest source of truth.
-
-### 3) `openclaw status` is your friend
-
-If you're diagnosing the integration, start with:
-
-```bash
-openclaw status
-```
-
-In the successful setup, that surfaced the important bits immediately:
-
-- gateway healthy
-- plugin loaded
-- context engine registered
-- session and memory stats visible
-
-## What was confusing
-
-### Session capture working is **not** the same as long-term memory extraction working
-
-This is the trap.
-
-You can get to a state where:
-
-- session capture is working
-- recall hooks are wired
-- the plugin is definitely loaded
-
-...and still **not** see the long-term extracted memories you expected.
-
-That does **not** automatically mean the integration failed. It may mean memory extraction/commit still needs to be triggered, verified, or separately debugged.
-
-In the real run behind this repo:
-
-- OpenClaw ↔ OpenViking remote integration was functioning
-- session capture/recall path looked good
-- but long-term memory generation still needed explicit follow-up validation
-
-So don’t lie to yourself with a fake green check. Separate these questions:
-
-1. Is the plugin wired correctly?
-2. Is recall happening?
-3. Is capture happening?
-4. Is long-term extraction actually producing memories?
-
-Those are related, but not identical.
-
-## Verify the integration
-
-### Fast check
+Run:
 
 ```bash
 ./scripts/verify.sh
 ```
 
-### Manual checks
+And also:
 
 ```bash
 openclaw status
 ```
 
-You want to see evidence that:
+A useful successful state usually includes most or all of these:
 
-- OpenClaw is healthy
-- OpenViking plugin is enabled
+- OpenClaw gateway is healthy
+- OpenViking plugin is loaded
 - `contextEngine` is `openviking`
+- OpenViking is reachable
+- recall and capture are enabled in config
+
+## What this setup actually proves
+
+If the above checks pass, you can reasonably say:
+
+- OpenClaw is talking to OpenViking
+- OpenViking is acting as the context engine
+- session capture is happening
+- recall hooks are in place
+- the integration path is real, not imaginary
+
+## What this setup does **not** automatically prove
+
+This is the part people constantly muddle.
+
+It does **not** automatically prove that:
+
+- long-term memory extraction is already producing high-value memories
+- every memory category is filling correctly
+- rerank is configured
+- your extraction quality is already “production perfect”
+
+The important distinction is:
+
+1. plugin wired correctly
+2. session capture / recall working
+3. archive + extraction pipeline fully validated
+
+Those are related, but they are not the same milestone.
+
+## Why the workspace memory files still matter
+
+Even with OpenViking attached, these files still matter a lot:
+
+- `MEMORY.md`
+- `memory/YYYY-MM-DD.md`
+
+Why? Because they are:
+
+- human-readable
+- easy to inspect
+- easy to curate
+- the cleanest continuity layer when you want explicit durable notes
+
+So the practical architecture is not “OpenViking replaces files.”
+It is closer to:
+
+- OpenClaw runtime
+- OpenViking as context / session / archive / memory backend
+- workspace Markdown files as the most direct human-readable memory layer
 
 ## Troubleshooting
 
-### OpenClaw loads forever or behaves weird after enabling OpenViking
+### OpenClaw keeps loading forever after enabling OpenViking
 
-Check the config carefully instead of reinstalling blindly.
+Check these first:
 
-Useful things to verify:
+- is the OpenViking service alive?
+- is `baseUrl` correct?
+- is `plugins.allow` including `openviking`?
+- is `plugins.slots.contextEngine = openviking`?
+- did you accidentally break `~/.openclaw/openclaw.json`?
 
-- `plugins.entries.openviking.enabled` is `true`
-- `plugins.entries.openviking.config.baseUrl` points to a live OpenViking service
-- `plugins.allow` includes `openviking`
-- `plugins.slots.contextEngine` is `openviking`
+### Recall is not happening
 
-### OpenViking is running but nothing is being recalled
+Check:
 
-Look at:
-
-- `autoRecall`
 - plugin load state in `openclaw status`
-- logs / routing diagnostics
+- `autoRecall`
+- OpenViking server health
+- routing / plugin logs if enabled
 
-### You expected memories/entities/events/preferences, but they stay empty
+### Session capture happens but memories seem empty
 
-That may be an extraction/commit issue rather than a transport/integration issue.
+That may be an extraction / commit issue rather than a transport issue.
 
-Do not blur those together.
+In plain English:
 
-## Suggested repo structure for future improvement
+- messages may already be landing in session storage
+- but structured long-term memories may still need further validation or explicit commit / extraction confirmation
 
-This repo is intentionally small. The obvious next upgrades would be:
+## Repo structure
 
-- Linux support
+```text
+.
+├── README.md
+├── README_zh.md
+├── CHANGELOG.md
+├── ROADMAP.md
+├── docs/
+│   └── architecture.md
+└── scripts/
+    ├── install.sh
+    └── verify.sh
+```
+
+## Roadmap
+
+See [ROADMAP.md](./ROADMAP.md).
+
+Short version:
+
+- better from-scratch flow
+- Linux-tested instructions
 - Docker / Compose examples
-- health checks against the OpenViking HTTP endpoint
-- a dedicated memory extraction validation script
-- CI smoke tests against a sample config
+- more verification artifacts
+- a clearer extraction-validation helper
 
-## Why this repo exists
+## License
 
-Because a lot of integration write-ups are fluff.
-
-People say “it works” when they really mean “the process stopped erroring.” That’s not the same thing.
-
-This repo tries to be more honest:
-
-- here is the config shape
-- here is the tiny script
-- here is what was actually proven
-- here is what was still unresolved
-
-## Attribution / scope
-
-This is an unofficial community integration note and helper script. Use it as a practical starting point, not as a substitute for the upstream OpenClaw/OpenViking docs.
-
-## Star bait, but honest
-
-If this saved you an hour of digging through config and false positives, give it a star.
-
-That’s the whole pitch. No mystical productivity revolution. It just helps you get the damn thing wired up.
+MIT, for the repo contents.
