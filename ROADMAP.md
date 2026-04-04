@@ -8,8 +8,8 @@
 - add an OpenViking endpoint health-check helper
 - add a memory extraction validation script
 - add screenshots or status snapshots showing a known-good state
-- add a tiny architecture diagram for OpenClaw vs OpenViking responsibilities
 - add direct upstream doc links for each branch of the install flow
+- add sample expected outputs for `openclaw status` and `verify.sh`
 
 ## Medium-term
 
@@ -17,6 +17,7 @@
 - add CI smoke tests against a fixture config
 - add a troubleshooting matrix by symptom
 - add a FAQ around recall, capture, extraction, and false positives
+- add more than one known-good deployment example
 
 ## Positioning guardrails
 

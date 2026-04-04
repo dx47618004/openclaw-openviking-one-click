@@ -6,6 +6,36 @@
 
 它基于一次真实成功跑通的现场经验整理，但目的不是炫耀“我这机子成了”。目的很简单：把这套整合写清楚、拆清楚、尽量让后来的人少踩坑。
 
+## 先看这里
+
+如果你只先看一个部分，就先看这段。
+
+### 路线 1：你已经装好了 OpenViking
+
+这仓库可以直接当你的主接线说明。
+
+推荐顺序：
+
+1. 先读这份 README
+2. 再跑 `scripts/install.sh`
+3. 再跑 `scripts/verify.sh`
+4. 再看 [docs/verification.md](./docs/verification.md)
+5. 再拿 [docs/known-good-example.md](./docs/known-good-example.md) 对照你的状态
+6. 最后再谈 extraction 到底算不算真的被证明了
+
+### 路线 2：你还没装 OpenViking
+
+别一上来就直接跑接线脚本。
+
+推荐顺序：
+
+1. 先按官方文档安装 OpenClaw
+2. 再按上游文档安装 OpenViking
+3. 再看 [docs/install-from-scratch.md](./docs/install-from-scratch.md)
+4. 然后再回来做接线和验证
+
+这个分流很重要，因为“后端压根没装”跟“整合接坏了”根本不是一类问题。
+
 ## 这个仓库是干嘛的
 
 它主要解决的是：
@@ -48,6 +78,14 @@ flowchart LR
 ```
 
 更详细的说明见：[docs/architecture.md](./docs/architecture.md)
+
+验证边界和“到底证明了什么/没证明什么”，单独看这里：[docs/verification.md](./docs/verification.md)
+
+已知正常状态长什么样，直接对照这里：[docs/known-good-example.md](./docs/known-good-example.md)
+
+如果你是从 0 开始装，直接看这里：[docs/install-from-scratch.md](./docs/install-from-scratch.md)
+
+如果你已经卡住了，直接看故障矩阵：[docs/troubleshooting.md](./docs/troubleshooting.md)
 
 ## 官方文档入口
 
@@ -202,6 +240,10 @@ openclaw status
 - OpenViking endpoint 可达
 - recall / capture 在配置里已经打开
 
+然后拿 [docs/known-good-example.md](./docs/known-good-example.md) 对一遍。
+
+如果你想把“接线成功”和“长期记忆已经完全验证”这两件事分开讲清楚，直接看 [docs/verification.md](./docs/verification.md)。
+
 ## 这一步到底证明了什么
 
 如果上面的检查都通过，你基本可以认为这些事情已经成立：
@@ -273,6 +315,7 @@ openclaw status
 - `autoRecall` 是否开启
 - OpenViking 服务是否健康
 - 插件 / 路由日志（如果你开了）
+- 你的测试短语是不是足够独特，能证明真 recall，而不是瞎猜
 
 ### session 在写，但 memory 看起来还是空的
 
@@ -283,6 +326,9 @@ openclaw status
 - 消息可能已经进 session 了
 - 但结构化长期记忆不一定已经沉淀出来
 
+如果你想按症状一格一格排，直接看 [docs/troubleshooting.md](./docs/troubleshooting.md)。
+如果你想对照一个正常样子，直接看 [docs/known-good-example.md](./docs/known-good-example.md)。
+
 ## 仓库结构
 
 ```text
@@ -292,7 +338,11 @@ openclaw status
 ├── CHANGELOG.md
 ├── ROADMAP.md
 ├── docs/
-│   └── architecture.md
+│   ├── architecture.md
+│   ├── install-from-scratch.md
+│   ├── known-good-example.md
+│   ├── troubleshooting.md
+│   └── verification.md
 └── scripts/
     ├── install.sh
     └── verify.sh
@@ -309,6 +359,7 @@ openclaw status
 - Docker / Compose 示例
 - 更完整的验证材料
 - 更明确的 extraction 验证脚本
+- 已知正常状态的截图 / 状态快照
 
 ## License
 

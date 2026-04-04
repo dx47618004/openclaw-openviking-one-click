@@ -6,6 +6,36 @@ A practical, beginner-friendly guide for turning **OpenClaw** and **OpenViking**
 
 This repo is based on a real successful setup, but the goal here is not to brag about one lucky run. The goal is simpler: make the integration understandable, reproducible, and much less annoying for the next person.
 
+## Start here
+
+If you only read one section first, read this one.
+
+### Route 1 — You already have OpenViking running
+
+Use this repo as your main wiring guide.
+
+Suggested order:
+
+1. read this README
+2. run `scripts/install.sh`
+3. run `scripts/verify.sh`
+4. read [docs/verification.md](./docs/verification.md)
+5. compare your state with [docs/known-good-example.md](./docs/known-good-example.md)
+6. only then talk about whether extraction is truly proven
+
+### Route 2 — You do **not** have OpenViking yet
+
+Do **not** jump straight into the wiring script.
+
+Suggested order:
+
+1. install OpenClaw from official docs
+2. install OpenViking from upstream docs
+3. follow [docs/install-from-scratch.md](./docs/install-from-scratch.md)
+4. come back here and run the wiring/verification steps
+
+This split matters because “backend not installed” and “integration broken” are not the same problem.
+
 ## What this repo is
 
 This is an **integration starter** for:
@@ -48,6 +78,10 @@ flowchart LR
 ```
 
 More detail: see [docs/architecture.md](./docs/architecture.md).
+Verification boundary: see [docs/verification.md](./docs/verification.md).
+Known-good example: see [docs/known-good-example.md](./docs/known-good-example.md).
+From-scratch route: see [docs/install-from-scratch.md](./docs/install-from-scratch.md).
+Failure matrix: see [docs/troubleshooting.md](./docs/troubleshooting.md).
 
 ## Official docs you should keep nearby
 
@@ -196,6 +230,10 @@ A useful successful state usually includes most or all of these:
 - OpenViking is reachable
 - recall and capture are enabled in config
 
+Then compare your state with [docs/known-good-example.md](./docs/known-good-example.md).
+
+For a more honest breakdown of what this does and does not prove, see [docs/verification.md](./docs/verification.md).
+
 ## What this setup actually proves
 
 If the above checks pass, you can reasonably say:
@@ -266,6 +304,7 @@ Check:
 - `autoRecall`
 - OpenViking server health
 - routing / plugin logs if enabled
+- whether your test phrase was actually unique enough to prove anything
 
 ### Session capture happens but memories seem empty
 
@@ -276,6 +315,9 @@ In plain English:
 - messages may already be landing in session storage
 - but structured long-term memories may still need further validation or explicit commit / extraction confirmation
 
+For the more systematic symptom matrix, read [docs/troubleshooting.md](./docs/troubleshooting.md).
+If you want to compare against a sane target state, read [docs/known-good-example.md](./docs/known-good-example.md).
+
 ## Repo structure
 
 ```text
@@ -285,7 +327,11 @@ In plain English:
 ├── CHANGELOG.md
 ├── ROADMAP.md
 ├── docs/
-│   └── architecture.md
+│   ├── architecture.md
+│   ├── install-from-scratch.md
+│   ├── known-good-example.md
+│   ├── troubleshooting.md
+│   └── verification.md
 └── scripts/
     ├── install.sh
     └── verify.sh
@@ -302,6 +348,7 @@ Short version:
 - Docker / Compose examples
 - more verification artifacts
 - a clearer extraction-validation helper
+- screenshots / status snapshots from a known-good setup
 
 ## License
 
