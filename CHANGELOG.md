@@ -4,6 +4,22 @@
 
 ### Changed
 
+- rewrote both `README.md` and `README_zh.md` to make the repo more **beginner-friendly** and more **general-purpose**
+- changed the main framing from a project-specific validation story to a simpler goal: **how to install OpenViking for OpenClaw in official local mode**
+- reorganized the main README flow into a clear **Step 1 / Step 2 / Step 3 ...** installation guide
+- moved tricky real-world pitfalls out of the main story and treated them as appendix / troubleshooting material instead of the repo’s main identity
+- kept the important auth warning, but positioned it as a practical install caveat rather than a personal debugging narrative
+
+### Clarified
+
+- the main README should optimize for **new users first**
+- the repo is a **general setup guide**, not a personal migration diary
+- pitfalls still matter, but they should support the install path rather than dominate it
+
+## 2026-04-07 (earlier)
+
+### Changed
+
 - repositioned the repo around the **official local** OpenClaw + OpenViking path instead of the earlier mixed remote-first story
 - updated both `README.md` and `README_zh.md` to mark the current state as **fixed** and **minimum runtime acceptance passed**
 - clarified the validated baseline: OpenViking `0.3.3`, Python `3.13`, `OPENVIKING_PYTHON` persisted in `~/.openclaw/openviking.env`, `log.output=stderr`, plugin mode `local`

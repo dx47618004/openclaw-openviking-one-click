@@ -1,118 +1,131 @@
-# OpenClaw + OpenViking Official Local Guide
+# Install OpenViking for OpenClaw (Official Local Mode)
 
 [中文说明 / Chinese README](./README_zh.md)
 
-This repo documents a **working, verified, and acceptance-tested baseline** for running **OpenClaw + OpenViking in official local mode**.
+This repo is a **beginner-friendly guide** for installing and wiring **OpenViking** into **OpenClaw** using the **official local mode**.
 
-It is not a generic “AI memory solved forever” landing page.
-It is a practical migration and verification guide based on real debugging, real failures, and a final setup that was actually driven to runtime acceptance.
+The goal is simple:
 
----
+> help a new user go from “I want OpenClaw memory” to “OpenClaw is running with OpenViking locally” with the fewest surprises possible.
 
-## Current status
-
-**Status: fixed and minimally accepted.**
-
-The official local path is now validated end-to-end at the minimum useful runtime layer:
-
-- local OpenViking service starts under the OpenClaw plugin
-- runtime authentication is working
-- recall/search requests succeed
-- capture/session message writes succeed
-- commit/extraction requests succeed
-- post-restart logs show no new `401`, `UNAUTHENTICATED`, or `Missing API Key`
-
-That is a much stronger statement than “health endpoint is green.”
+This repo is **not** meant to be a personal debug diary.
+The project-specific pitfalls we hit are still useful, but they belong in the appendix and troubleshooting docs — not in the main install path.
 
 ---
 
-## What this repo now focuses on
+## Who this guide is for
 
-The main path is:
+This guide is for people who want:
 
-- **OpenClaw** uses the **official `local` mode** OpenViking plugin
-- **OpenViking** is pinned to **`0.3.3`**
-- **Python** is pinned to **`3.13`**
-- Gateway is managed only with official commands:
-  - `openclaw gateway install --force`
-  - `openclaw gateway start`
-  - `openclaw gateway restart`
+- OpenClaw to use OpenViking as its context / memory backend
+- the **official `local` plugin mode** instead of a custom remote deployment
+- a practical installation guide with clear steps
+- a setup that is easy to verify after installation
 
-This repo no longer treats the old `remote`-mode wiring as the default story.
+If you just want the shortest answer:
+
+1. install OpenClaw
+2. install OpenViking
+3. enable the OpenViking plugin in local mode
+4. restart the OpenClaw gateway
+5. verify the local service and plugin wiring
+
+The rest of this README turns that into a step-by-step path.
 
 ---
 
-## What we actually validated
+## What this repo covers
 
-The stable baseline we verified is:
+Mainline path:
+
+- **OpenClaw**
+- **OpenViking**
+- **official `local` mode** plugin wiring
+- a **basic verification flow**
+- a few important caveats collected into appendix / troubleshooting
+
+This is a general-purpose setup guide, not a claim that every memory workflow is already perfect.
+
+---
+
+## Upstream references
+
+You should keep the official docs nearby.
+
+### OpenClaw
+
+- Docs: <https://docs.openclaw.ai>
+- Install: <https://docs.openclaw.ai/install>
+- Installer: <https://docs.openclaw.ai/install/installer>
+- macOS: <https://docs.openclaw.ai/platforms/macos>
+
+### OpenViking
+
+- GitHub: <https://github.com/volcengine/OpenViking>
+- OpenClaw plugin install doc: <https://github.com/volcengine/OpenViking/blob/v0.3.3/examples/openclaw-plugin/INSTALL.md>
+- OpenClaw plugin schema/example: <https://github.com/volcengine/OpenViking/blob/v0.3.3/examples/openclaw-plugin/openclaw.plugin.json>
+
+This repo complements the official docs. It does not replace them.
+
+---
+
+## Recommended baseline
+
+If you want the path that is easiest to reproduce, use this baseline:
 
 - OpenClaw plugin mode: **`local`**
 - OpenViking version: **`0.3.3`**
-- Python interpreter: **`3.13`**
-- OpenViking port: **`1933`**
+- Python: **`3.13`**
 - OpenViking config path: **`~/.openviking/ov.conf`**
+- OpenViking port: **`1933`**
 - OpenViking log output: **`stderr`**
-- Persistent Python override file: **`~/.openclaw/openviking.env`**
-- Runtime auth path: **working**
-- Minimum business-path acceptance: **passed**
-
-Specifically, after the final fix, these real API routes were validated successfully:
-
-- `POST /api/v1/search/find` → `200`
-- `POST /api/v1/sessions/<id>/messages` → `200`
-- `POST /api/v1/sessions/<id>/commit` → `200`
-
-And extraction completion was observed in logs after commit acceptance.
+- OpenClaw gateway managed with official commands only
 
 ---
 
-## The two critical fixes this repo now documents
+# Step-by-step install flow
 
-### Fix 1 — Persist the correct Python
+## Step 1 — Install OpenClaw
 
-Do **not** hand-edit the LaunchAgent plist as a long-term fix.
+If OpenClaw is not installed yet, start with the official docs:
 
-Use:
+- <https://docs.openclaw.ai/install>
+- <https://docs.openclaw.ai/install/installer>
 
-- `~/.openclaw/openviking.env`
-
-Example:
+After installation, confirm the gateway is available:
 
 ```bash
-OPENVIKING_PYTHON="/Users/sean/venvs/openviking-py313-v033-py313/bin/python"
+openclaw gateway status
 ```
 
-This is the key persistent fix for machines where local mode would otherwise fall back to the wrong Python.
-
-### Fix 2 — Do not forget plugin-side API auth
-
-If your OpenViking server uses:
-
-- `server.auth_mode = api_key`
-
-then the OpenClaw plugin must also be given an API key through either:
-
-- `plugins.entries.openviking.config.apiKey`
-- or `OPENVIKING_API_KEY`
-
-**Important:**
-
-> `ov.conf.root_api_key` is not inherited automatically by the OpenClaw plugin.
-
-This was the second major trap in real validation.
-The local service could be fully up and `/health` could be green while real plugin requests still failed with `401 Missing API Key`.
+If OpenClaw itself is not healthy, stop here and fix that first.
+Do not stack OpenViking on top of a broken OpenClaw install.
 
 ---
 
-## Required OpenViking config
+## Step 2 — Install OpenViking
 
-Your `~/.openviking/ov.conf` should at least satisfy:
+Follow the upstream OpenViking installation flow and plugin references:
+
+- <https://github.com/volcengine/OpenViking>
+- <https://github.com/volcengine/OpenViking/blob/v0.3.3/examples/openclaw-plugin/INSTALL.md>
+
+For a cleaner local setup, prefer:
+
+- OpenViking `0.3.3`
+- Python `3.13`
+
+After installation, make sure you have:
+
+- an OpenViking config file at `~/.openviking/ov.conf`
+- a working Python environment that can actually run OpenViking
+
+A minimal config usually looks like:
 
 ```json
 {
   "server": {
-    "port": 1933,
-    "auth_mode": "api_key"
+    "port": 1933
   },
   "log": {
     "output": "stderr"
@@ -120,23 +133,15 @@ Your `~/.openviking/ov.conf` should at least satisfy:
 }
 ```
 
-If auth is enabled, make sure the plugin side is configured accordingly.
-
-### Why `stderr` matters
-
-In our validation, keeping:
-
-- `log.output = stdout`
-
-could make local child-process supervision unstable.
-
-So in this repo, `stderr` is treated as part of the verified baseline, not as a cosmetic preference.
+If you enable API-key auth on the OpenViking side, keep reading carefully — the plugin side must also be configured for auth.
 
 ---
 
-## Recommended OpenClaw plugin config shape
+## Step 3 — Enable the OpenViking plugin in OpenClaw
 
-Your `~/.openclaw/openclaw.json` should contain the relevant shape:
+Your `~/.openclaw/openclaw.json` should end up with the OpenViking plugin enabled in `local` mode.
+
+Example shape:
 
 ```json
 {
@@ -150,7 +155,6 @@ Your `~/.openclaw/openclaw.json` should contain the relevant shape:
           "configPath": "~/.openviking/ov.conf",
           "port": 1933,
           "agentId": "main",
-          "apiKey": "<same key expected by OpenViking server>",
           "autoRecall": true,
           "autoCapture": true,
           "emitStandardDiagnostics": true,
@@ -168,87 +172,79 @@ Your `~/.openclaw/openclaw.json` should contain the relevant shape:
 
 What matters most:
 
-- `mode = local`
-- `configPath = ~/.openviking/ov.conf`
-- `port = 1933`
-- `apiKey` is present if server auth is enabled
 - `plugins.allow` includes `openviking`
+- `plugins.entries.openviking.enabled = true`
+- `mode = local`
+- `configPath` points to your real `ov.conf`
+- `port` is explicitly set
 - `plugins.slots.contextEngine = openviking`
 
 ---
 
-## Migration steps
+## Step 4 — Persist the correct Python runtime
 
-### Step 1 — Confirm OpenClaw plugin config is local
+This is one of the easiest ways to avoid pain.
 
-Confirm:
-
-- `mode = local`
-- correct `configPath`
-- explicit `port`
-- `contextEngine = openviking`
-
-### Step 2 — Fix OpenViking config
-
-Make sure `~/.openviking/ov.conf` uses:
-
-- `server.port = 1933`
-- `log.output = stderr`
-
-If server auth is enabled, note that plugin auth must be configured separately.
-
-### Step 3 — Persist the correct Python
-
-Create or update:
+Create:
 
 - `~/.openclaw/openviking.env`
 
 Example:
 
 ```bash
-OPENVIKING_PYTHON="/Users/sean/venvs/openviking-py313-v033-py313/bin/python"
+OPENVIKING_PYTHON="/path/to/your/python3.13"
 ```
 
-### Step 4 — Configure plugin-side API key when auth is enabled
+If you already know your working OpenViking Python path, put it here.
+This helps OpenClaw local mode launch the correct Python consistently.
 
-Use either:
+**Do not** rely on hand-editing the generated LaunchAgent plist as your long-term fix.
+Use `~/.openclaw/openviking.env` instead.
+
+---
+
+## Step 5 — If OpenViking uses API-key auth, configure the plugin too
+
+If your `ov.conf` enables:
+
+- `server.auth_mode = api_key`
+
+then the OpenClaw plugin must also receive an API key through either:
+
+- `plugins.entries.openviking.config.apiKey`
+- or `OPENVIKING_API_KEY`
+
+For example:
 
 ```bash
 openclaw config set plugins.entries.openviking.config.apiKey your-api-key
 ```
 
-or provide:
+**Important:**
 
-```bash
-OPENVIKING_API_KEY="your-api-key"
-```
+> `ov.conf.root_api_key` is not automatically inherited by the OpenClaw plugin.
 
-Again: the plugin does **not** auto-import `root_api_key` from `ov.conf`.
+If you skip this step, the local service may still start and `/health` may still look fine, but real API routes can fail with `401 Missing API Key`.
 
-### Step 5 — Remove the old separate OpenViking service from the main path
+---
 
-If you previously ran OpenViking as a separate launchd service, stop using that as the main production path before switching.
+## Step 6 — Restart the OpenClaw gateway
 
-The point of the final state is:
-
-- OpenClaw gateway runs normally
-- the plugin starts OpenViking in official local mode
-- you are no longer depending on the old standalone service as the main path
-
-### Step 6 — Use only official gateway service commands
-
-Run:
+Use official gateway commands:
 
 ```bash
 openclaw gateway install --force
 openclaw gateway restart
 ```
 
-Do not replace this step with manual long-term plist editing.
+Avoid building your own long-term service-management story unless you really need it.
+The point here is a simple, upstream-aligned setup.
 
-### Step 7 — Verify startup and runtime auth
+---
 
-Run:
+## Step 7 — Verify the installation
+
+Start with the basics:
 
 ```bash
 openclaw gateway status
@@ -256,85 +252,67 @@ lsof -nP -iTCP:1933 -sTCP:LISTEN
 curl http://127.0.0.1:1933/health
 ```
 
-Then check logs and confirm real API routes are not returning `401`.
+You want to see:
 
-Expected result:
+- OpenClaw gateway is healthy
+- OpenViking is listening on `1933`
+- `/health` responds successfully
 
-- gateway is running
-- port `1933` is listening
-- `/health` returns healthy
-- runtime routes no longer show `Missing API Key`
+Then confirm the OpenViking plugin is really wired in:
 
----
+- `plugins.slots.contextEngine = openviking`
+- no obvious plugin-load errors in logs
 
-## Quick acceptance checklist
-
-- [ ] `openclaw gateway status` is healthy
-- [ ] `1933` is listening
-- [ ] `curl http://127.0.0.1:1933/health` returns OK
-- [ ] OpenViking version is `0.3.3`
-- [ ] `~/.openclaw/openviking.env` exists
-- [ ] `OPENVIKING_PYTHON` points to Python 3.13
-- [ ] `~/.openviking/ov.conf` uses `log.output=stderr`
-- [ ] if `auth_mode=api_key`, plugin `apiKey` or `OPENVIKING_API_KEY` is configured
-- [ ] `POST /api/v1/search/find` succeeds
-- [ ] `POST /api/v1/sessions/<id>/messages` succeeds
-- [ ] `POST /api/v1/sessions/<id>/commit` succeeds
+If API-key auth is enabled, also confirm your real routes are not failing with `401`.
 
 ---
 
-## What this repo now proves well
+## Quick checklist
 
-With the baseline above, this repo can credibly help you prove:
-
-- OpenClaw is configured to use OpenViking in official local mode
-- the plugin is active as the context engine
-- the local OpenViking process can be supervised stably
-- the correct Python runtime is being used
-- runtime authentication is working
-- the minimum useful business path has passed acceptance
-
----
-
-## What this repo still does not magically prove
-
-It does **not** automatically prove:
-
-- long-term extraction quality in every workload
-- cross-session memory quality
-- ranking quality
-- whether retrieved memories are meaningful rather than junk
-- whether your workload-specific recall behavior is already production-perfect
-
-So the honest statement is:
-
-> Wiring, local runtime, and minimum runtime auth/business-path acceptance are working, but memory quality and long-term extraction still need their own validation.
-
-That sentence is less sexy than marketing, but at least it is not fake.
+- [ ] OpenClaw is installed and healthy
+- [ ] OpenViking is installed
+- [ ] `~/.openviking/ov.conf` exists
+- [ ] OpenClaw plugin mode is `local`
+- [ ] `plugins.slots.contextEngine = openviking`
+- [ ] `~/.openclaw/openviking.env` exists when Python needs to be pinned
+- [ ] `OPENVIKING_PYTHON` points to the correct Python runtime
+- [ ] OpenViking local port is listening
+- [ ] `/health` returns OK
+- [ ] if `auth_mode=api_key`, plugin-side `apiKey` or `OPENVIKING_API_KEY` is configured
 
 ---
 
-## Related docs in this repo
+## What to read next
+
+### Core docs
 
 - [docs/architecture.md](./docs/architecture.md)
 - [docs/verification.md](./docs/verification.md)
 - [docs/troubleshooting.md](./docs/troubleshooting.md)
-- [CHANGELOG.md](./CHANGELOG.md)
-- [ROADMAP.md](./ROADMAP.md)
+
+### Appendix / deeper reading
+
+Use these docs when the install path is not enough:
+
+- `docs/verification.md` — what “working” actually means
+- `docs/troubleshooting.md` — symptom-based debugging
+
+That is where the tricky pitfalls belong.
+They should support the install guide, not drown it.
 
 ---
 
 ## Bottom line
 
-If you want a stable **official local** setup, the minimum reliable baseline is:
+If you want a **new-user-friendly** way to install OpenViking for OpenClaw, the cleanest story is:
 
-- OpenViking `0.3.3`
-- Python `3.13`
-- `OPENVIKING_PYTHON` persisted in `~/.openclaw/openviking.env`
-- `log.output = stderr`
-- plugin mode `local`
-- explicit local `port`
-- plugin-side `apiKey` when server auth is enabled
+1. install OpenClaw
+2. install OpenViking
+3. enable the OpenViking plugin in `local` mode
+4. persist the correct Python in `~/.openclaw/openviking.env`
+5. if auth is enabled, configure the plugin-side API key too
+6. restart the gateway
+7. verify the local service and plugin wiring
 
-That combination is not hypothetical anymore.
-It has now been driven through real runtime verification and minimum acceptance.
+That is the main story.
+Everything else is appendix.

@@ -1,118 +1,129 @@
-# OpenClaw + OpenViking 官方 Local 方案
+# 为 OpenClaw 安装 OpenViking（Official Local Mode）
 
 [English README](./README.md)
 
-这个仓库现在记录的是一套**已经修复、已经过最小业务验收**的 **OpenClaw + OpenViking official local** 基线。
+这个仓库现在要做的事很简单：
 
-它不是“AI 记忆革命”的营销页。
-它是基于真实排障、真实翻车、真实修复后沉淀出来的实战整合说明。
+**给新手一份尽量直接、尽量通用的说明，教你怎么把 OpenViking 装到 OpenClaw 上。**
 
----
-
-## 当前状态
-
-**状态：已修复，并完成最小业务验收。**
-
-目前 official local 主路径已经在最小有用运行层被验证打通：
-
-- OpenClaw 插件能在 local 模式下拉起 OpenViking
-- runtime auth 已打通
-- recall/search 请求成功
-- capture/session message 写入成功
-- commit/extraction 请求成功
-- 重启后的日志窗口里没有新的 `401`、`UNAUTHENTICATED`、`Missing API Key`
-
-这比“`/health` 绿了”强得多。
+目标不是写成个人排障日记。
+这次踩过的坑仍然有价值，但应该收进附录和 troubleshooting，而不是霸占正文主线。
 
 ---
 
-## 这个仓库现在聚焦什么
+## 这份说明适合谁
 
-当前主路径是：
+适合这些人：
 
-- **OpenClaw** 使用官方 **`local`** 模式插件
-- **OpenViking** 固定为 **`0.3.3`**
-- **Python** 固定为 **`3.13`**
-- gateway 只通过官方命令管理：
-  - `openclaw gateway install --force`
-  - `openclaw gateway start`
-  - `openclaw gateway restart`
+- 想让 OpenClaw 用 OpenViking 做 context / memory backend
+- 希望尽量走官方 **`local`** 模式，而不是自己拼 remote 架构
+- 想看一个**步骤清楚、容易照做**的安装说明
+- 想在装完之后有一个基本验收办法
 
-这个仓库不再把旧的 **remote 接线** 当成主叙事。
+如果只看最短版本，流程就是：
+
+1. 安装 OpenClaw
+2. 安装 OpenViking
+3. 在 OpenClaw 里启用 OpenViking 插件（`local` 模式）
+4. 重启 gateway
+5. 做基本验证
+
+下面只是把这几步展开讲清楚。
 
 ---
 
-## 这次真正验证通过了什么
+## 这份仓库现在覆盖什么
 
-当前已验证通过的稳定基线是：
+主线只覆盖这些：
+
+- **OpenClaw**
+- **OpenViking**
+- 官方 **`local`** 模式插件接线
+- 一套**基础验证流程**
+- 少量关键注意事项，其他坑统一放附录 / troubleshooting
+
+这是一个通用安装说明，不是“所有记忆场景都已经完美”的宣传页。
+
+---
+
+## 上游官方入口
+
+正文建议和官方文档配合看。
+
+### OpenClaw
+
+- 文档：<https://docs.openclaw.ai>
+- 安装：<https://docs.openclaw.ai/install>
+- Installer：<https://docs.openclaw.ai/install/installer>
+- macOS：<https://docs.openclaw.ai/platforms/macos>
+
+### OpenViking
+
+- GitHub：<https://github.com/volcengine/OpenViking>
+- OpenClaw 插件安装文档：<https://github.com/volcengine/OpenViking/blob/v0.3.3/examples/openclaw-plugin/INSTALL.md>
+- OpenClaw 插件 schema / 示例：<https://github.com/volcengine/OpenViking/blob/v0.3.3/examples/openclaw-plugin/openclaw.plugin.json>
+
+这个仓库是用来补强新手安装说明和常见注意事项的，不是替代上游文档。
+
+---
+
+## 推荐基线
+
+如果你想走一条更容易复现的路，建议直接按这个基线来：
 
 - OpenClaw 插件模式：**`local`**
 - OpenViking 版本：**`0.3.3`**
-- Python 解释器：**`3.13`**
+- Python：**`3.13`**
+- OpenViking 配置：**`~/.openviking/ov.conf`**
 - OpenViking 端口：**`1933`**
-- OpenViking 配置文件：**`~/.openviking/ov.conf`**
 - OpenViking 日志输出：**`stderr`**
-- Python 持久覆盖文件：**`~/.openclaw/openviking.env`**
-- runtime auth：**已通过**
-- 最小业务链路验收：**已通过**
-
-最终验收中，以下真实 API 路由已确认成功：
-
-- `POST /api/v1/search/find` → `200`
-- `POST /api/v1/sessions/<id>/messages` → `200`
-- `POST /api/v1/sessions/<id>/commit` → `200`
-
-并且在 commit accepted 之后，日志里继续确认到了 extraction 完成。
+- OpenClaw gateway 只用官方命令管理
 
 ---
 
-## 这次必须写进仓库的两个关键修复点
+# 分步安装流程
 
-### 修复点 1：持久固定正确的 Python
+## Step 1：安装 OpenClaw
 
-**不要**把手改 LaunchAgent plist 当成长期方案。
+如果你还没装 OpenClaw，先走官方安装文档：
 
-应该使用：
+- <https://docs.openclaw.ai/install>
+- <https://docs.openclaw.ai/install/installer>
 
-- `~/.openclaw/openviking.env`
-
-示例：
+装完先确认 gateway 可用：
 
 ```bash
-OPENVIKING_PYTHON="/Users/sean/venvs/openviking-py313-v033-py313/bin/python"
+openclaw gateway status
 ```
 
-这一步是 local 模式避免掉回错误 Python 的关键持久修复。
-
-### 修复点 2：不要漏掉插件侧 API 认证
-
-如果你的 OpenViking 服务端使用：
-
-- `server.auth_mode = api_key`
-
-那么 OpenClaw 插件侧也必须显式拿到 API key，方式二选一：
-
-- `plugins.entries.openviking.config.apiKey`
-- `OPENVIKING_API_KEY`
-
-**重点：**
-
-> `ov.conf.root_api_key` 不会自动被 OpenClaw 插件继承。
-
-这次真实排障里第二个大坑就在这里。
-即使 local 服务已经正常起来，`/health` 也已经是绿色，真实业务请求依然可能全部 `401 Missing API Key`。
+如果 OpenClaw 自己都还不健康，就先别往上叠 OpenViking。
+先把 OpenClaw 本身修好。
 
 ---
 
-## OpenViking 配置要求
+## Step 2：安装 OpenViking
 
-你的 `~/.openviking/ov.conf` 至少应满足：
+按 OpenViking 上游说明安装：
+
+- <https://github.com/volcengine/OpenViking>
+- <https://github.com/volcengine/OpenViking/blob/v0.3.3/examples/openclaw-plugin/INSTALL.md>
+
+为了少踩坑，建议优先使用：
+
+- OpenViking `0.3.3`
+- Python `3.13`
+
+装完后，至少要确认：
+
+- 你有 `~/.openviking/ov.conf`
+- 你有一套真的能跑 OpenViking 的 Python 环境
+
+一个最小配置通常像这样：
 
 ```json
 {
   "server": {
-    "port": 1933,
-    "auth_mode": "api_key"
+    "port": 1933
   },
   "log": {
     "output": "stderr"
@@ -120,23 +131,15 @@ OPENVIKING_PYTHON="/Users/sean/venvs/openviking-py313-v033-py313/bin/python"
 }
 ```
 
-如果启用了认证，别忘了插件侧也要补 key。
-
-### 为什么 `stderr` 很重要
-
-这次验证里，如果保留：
-
-- `log.output = stdout`
-
-local 子进程监管会不稳。
-
-所以在这个仓库里，`stderr` 不是“个人偏好”，而是**当前已验证可复现的稳定基线**。
+如果你打算在 OpenViking 端启用 API-key 认证，后面还要给插件侧也补上。
 
 ---
 
-## 推荐的 OpenClaw 插件配置形态
+## Step 3：在 OpenClaw 里启用 OpenViking 插件
 
-你的 `~/.openclaw/openclaw.json` 相关结构建议至少是：
+你的 `~/.openclaw/openclaw.json` 里，OpenViking 插件应当以 `local` 模式启用。
+
+示例结构：
 
 ```json
 {
@@ -150,7 +153,6 @@ local 子进程监管会不稳。
           "configPath": "~/.openviking/ov.conf",
           "port": 1933,
           "agentId": "main",
-          "apiKey": "<与服务端一致的 key>",
           "autoRecall": true,
           "autoCapture": true,
           "emitStandardDiagnostics": true,
@@ -166,89 +168,81 @@ local 子进程监管会不稳。
 }
 ```
 
-重点看这些：
+重点看：
 
-- `mode = local`
-- `configPath = ~/.openviking/ov.conf`
-- `port = 1933`
-- 如果服务端开了认证，`apiKey` 必须存在
 - `plugins.allow` 包含 `openviking`
+- `plugins.entries.openviking.enabled = true`
+- `mode = local`
+- `configPath` 指向真实 `ov.conf`
+- `port` 显式写出
 - `plugins.slots.contextEngine = openviking`
 
 ---
 
-## 迁移步骤
+## Step 4：持久固定正确的 Python 运行时
 
-### Step 1：确认 OpenClaw 侧已经是 local 模式
+这一步很值钱，能帮你少掉一堆莫名其妙的问题。
 
-确认：
-
-- `mode = local`
-- `configPath` 正确
-- `port` 显式设置
-- `contextEngine = openviking`
-
-### Step 2：修 OpenViking 配置
-
-确保 `~/.openviking/ov.conf` 至少有：
-
-- `server.port = 1933`
-- `log.output = stderr`
-
-如果服务端启用了认证，记住：插件侧认证要单独配。
-
-### Step 3：写入正确的 Python 持久配置
-
-创建或更新：
+创建：
 
 - `~/.openclaw/openviking.env`
 
 示例：
 
 ```bash
-OPENVIKING_PYTHON="/Users/sean/venvs/openviking-py313-v033-py313/bin/python"
+OPENVIKING_PYTHON="/path/to/your/python3.13"
 ```
 
-### Step 4：在启用认证时补上插件侧 API key
+如果你已经知道哪一个 Python 环境能正常跑 OpenViking，就把它写这里。
+这样 OpenClaw 在 local 模式下会更稳定地用对解释器。
 
-二选一：
+**不要**把手改生成出来的 LaunchAgent plist 当成长期方案。
+长期入口应该是 `~/.openclaw/openviking.env`。
+
+---
+
+## Step 5：如果 OpenViking 开了 API-key 认证，插件侧也要配
+
+如果你的 `ov.conf` 启用了：
+
+- `server.auth_mode = api_key`
+
+那么 OpenClaw 插件侧也必须拿到 key，方式二选一：
+
+- `plugins.entries.openviking.config.apiKey`
+- `OPENVIKING_API_KEY`
+
+例如：
 
 ```bash
 openclaw config set plugins.entries.openviking.config.apiKey your-api-key
 ```
 
-或者提供：
+**重点：**
 
-```bash
-OPENVIKING_API_KEY="your-api-key"
-```
+> `ov.conf.root_api_key` 不会自动被 OpenClaw 插件继承。
 
-再说一遍：插件**不会**自动从 `ov.conf.root_api_key` 继承 key。
+如果你漏掉这一步，local 服务可能照样能起来，`/health` 也可能是绿的，但真实 API 路由会直接 `401 Missing API Key`。
 
-### Step 5：让旧独立 OpenViking 服务退出主路径
+---
 
-如果你之前有独立 launchd OpenViking 服务，切换 final state 之前，要先让它退出主路径。
+## Step 6：重启 OpenClaw gateway
 
-最终目标是：
-
-- OpenClaw gateway 正常运行
-- OpenViking 由插件按 official local 拉起
-- 不再依赖旧 standalone 服务作为主路径
-
-### Step 6：只用官方 gateway 命令管理服务
-
-执行：
+用官方命令：
 
 ```bash
 openclaw gateway install --force
 openclaw gateway restart
 ```
 
-不要再把“长期手改 plist”当方案。
+别自己发明一套长期服务管理流程，除非你很清楚自己在干什么。
+这里追求的是简单、贴近上游、容易复现。
 
-### Step 7：验 startup，也验 runtime auth
+---
 
-执行：
+## Step 7：做基本验证
+
+先看最基础的三项：
 
 ```bash
 openclaw gateway status
@@ -256,85 +250,66 @@ lsof -nP -iTCP:1933 -sTCP:LISTEN
 curl http://127.0.0.1:1933/health
 ```
 
-然后继续看日志，确认真实 API 路由不再报 `401`。
+你希望看到：
 
-预期结果：
+- OpenClaw gateway 正常
+- OpenViking 正在监听 `1933`
+- `/health` 返回成功
 
-- gateway 正常运行
-- `1933` 正在监听
-- `/health` 返回 healthy
-- runtime 路由里不再出现 `Missing API Key`
+然后再确认插件确实挂上了：
 
----
+- `plugins.slots.contextEngine = openviking`
+- 日志里没有明显的插件加载报错
 
-## 快速验收清单
-
-- [ ] `openclaw gateway status` 正常
-- [ ] `1933` 正在监听
-- [ ] `curl http://127.0.0.1:1933/health` 返回 OK
-- [ ] OpenViking 版本是 `0.3.3`
-- [ ] `~/.openclaw/openviking.env` 存在
-- [ ] `OPENVIKING_PYTHON` 指向 Python 3.13
-- [ ] `~/.openviking/ov.conf` 使用 `log.output=stderr`
-- [ ] 如果 `auth_mode=api_key`，插件 `apiKey` 或 `OPENVIKING_API_KEY` 已配置
-- [ ] `POST /api/v1/search/find` 成功
-- [ ] `POST /api/v1/sessions/<id>/messages` 成功
-- [ ] `POST /api/v1/sessions/<id>/commit` 成功
+如果启用了 API-key 认证，还要继续确认真实路由不再报 `401`。
 
 ---
 
-## 这个仓库现在能可靠证明什么
+## 快速检查清单
 
-在上面这套基线成立后，这个仓库现在能比较诚实地帮助你证明：
-
-- OpenClaw 已经按 official local 接入 OpenViking
-- 插件已作为 context engine 生效
-- local OpenViking 子进程已能被稳定托管
-- Python 运行时已正确固定
-- runtime authentication 已打通
-- 最小有用业务链路已通过验收
-
----
-
-## 这个仓库还不能自动替你证明什么
-
-它**不能自动证明**：
-
-- 所有业务场景下的长期记忆抽取质量
-- 跨会话记忆质量
-- rerank / retrieval 质量
-- 检索回来的记忆是不是有用而不是垃圾
-- 你的具体业务场景已经完全 production-ready
-
-所以最诚实的说法是：
-
-> 接线、local runtime，以及最小 runtime auth / 业务链路验收都已经通过，但长期记忆质量和抽取效果仍需单独验证。
-
-这句话不性感，但起码不是瞎吹。
+- [ ] OpenClaw 已安装且健康
+- [ ] OpenViking 已安装
+- [ ] `~/.openviking/ov.conf` 存在
+- [ ] OpenClaw 插件模式为 `local`
+- [ ] `plugins.slots.contextEngine = openviking`
+- [ ] 需要固定 Python 时，`~/.openclaw/openviking.env` 已存在
+- [ ] `OPENVIKING_PYTHON` 指向正确 Python
+- [ ] OpenViking 本地端口在监听
+- [ ] `/health` 返回 OK
+- [ ] 若 `auth_mode=api_key`，插件侧 `apiKey` 或 `OPENVIKING_API_KEY` 已配置
 
 ---
 
-## 仓库内相关文档
+## 接下来读什么
+
+### 核心补充文档
 
 - [docs/architecture.md](./docs/architecture.md)
 - [docs/verification.md](./docs/verification.md)
 - [docs/troubleshooting.md](./docs/troubleshooting.md)
-- [CHANGELOG.md](./CHANGELOG.md)
-- [ROADMAP.md](./ROADMAP.md)
+
+### 附录 / 深水区
+
+如果正文安装流程不够用，再看这些：
+
+- `docs/verification.md` —— “装好了”到底算什么
+- `docs/troubleshooting.md` —— 按症状排查问题
+
+那些复杂坑和特殊情况，应该待在这里，不该淹没正文。
 
 ---
 
-## 结论
+## 最后一版一句话总结
 
-如果你想要一个稳定的 **official local** 方案，当前最小可靠基线是：
+如果你只是想**给 OpenClaw 装上 OpenViking**，最清爽的主线就是：
 
-- OpenViking `0.3.3`
-- Python `3.13`
-- `OPENVIKING_PYTHON` 持久写入 `~/.openclaw/openviking.env`
-- `log.output = stderr`
-- 插件模式 `local`
-- 显式 local `port`
-- 当服务端启用认证时，插件侧显式提供 `apiKey`
+1. 安装 OpenClaw
+2. 安装 OpenViking
+3. 在 OpenClaw 里启用 `local` 模式插件
+4. 在 `~/.openclaw/openviking.env` 里固定正确 Python
+5. 如果启用了认证，再给插件侧补 API key
+6. 重启 gateway
+7. 做基本验证
 
-这套组合现在已经不是“理论可行”。
-而是已经被真实运行验证和最小业务验收打通过的组合。
+主线就这些。
+其他坑，统统放附录。
