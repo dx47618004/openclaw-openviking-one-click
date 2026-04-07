@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-04-07
+
+### Changed
+
+- repositioned the repo around the **official local** OpenClaw + OpenViking path instead of the earlier mixed remote-first story
+- updated both `README.md` and `README_zh.md` to mark the current state as **fixed** and **minimum runtime acceptance passed**
+- clarified the validated baseline: OpenViking `0.3.3`, Python `3.13`, `OPENVIKING_PYTHON` persisted in `~/.openclaw/openviking.env`, `log.output=stderr`, plugin mode `local`
+- documented the second major real-world failure mode: a green `/health` does **not** prove runtime auth is working
+- documented the required auth rule: if OpenViking server uses `auth_mode=api_key`, the OpenClaw plugin must also be given `plugins.entries.openviking.config.apiKey` or `OPENVIKING_API_KEY`
+- made explicit that `ov.conf.root_api_key` is **not** inherited automatically by the plugin
+- rewrote `docs/verification.md` around four layers: wiring, local startup, runtime auth, and capture/recall/extraction
+- rewrote `docs/troubleshooting.md` to include the `/health`-green-but-401` trap and the exact integration mismatch behind it
+
+### Verified
+
+- `POST /api/v1/search/find` returns `200`
+- `POST /api/v1/sessions/<id>/messages` returns `200`
+- `POST /api/v1/sessions/<id>/commit` returns `200`
+- extraction completion was observed after commit acceptance
+- post-restart logs showed no new `401`, `UNAUTHENTICATED`, or `Missing API Key`
+
+### Status
+
+- official local migration: **complete**
+- runtime auth: **verified**
+- minimum business-path acceptance: **passed**
+
 ## 2026-04-05
 
 ### Added

@@ -1,355 +1,340 @@
-# OpenClaw + OpenViking Ultimate Setup
+# OpenClaw + OpenViking Official Local Guide
 
 [中文说明 / Chinese README](./README_zh.md)
 
-A practical, beginner-friendly guide for turning **OpenClaw** and **OpenViking** into one working stack.
+This repo documents a **working, verified, and acceptance-tested baseline** for running **OpenClaw + OpenViking in official local mode**.
 
-This repo is based on a real successful setup, but the goal here is not to brag about one lucky run. The goal is simpler: make the integration understandable, reproducible, and much less annoying for the next person.
+It is not a generic “AI memory solved forever” landing page.
+It is a practical migration and verification guide based on real debugging, real failures, and a final setup that was actually driven to runtime acceptance.
 
-## Start here
+---
 
-If you only read one section first, read this one.
+## Current status
 
-### Route 1 — You already have OpenViking running
+**Status: fixed and minimally accepted.**
 
-Use this repo as your main wiring guide.
+The official local path is now validated end-to-end at the minimum useful runtime layer:
 
-Suggested order:
+- local OpenViking service starts under the OpenClaw plugin
+- runtime authentication is working
+- recall/search requests succeed
+- capture/session message writes succeed
+- commit/extraction requests succeed
+- post-restart logs show no new `401`, `UNAUTHENTICATED`, or `Missing API Key`
 
-1. read this README
-2. run `scripts/install.sh`
-3. run `scripts/verify.sh`
-4. read [docs/verification.md](./docs/verification.md)
-5. compare your state with [docs/known-good-example.md](./docs/known-good-example.md)
-6. only then talk about whether extraction is truly proven
+That is a much stronger statement than “health endpoint is green.”
 
-### Route 2 — You do **not** have OpenViking yet
+---
 
-Do **not** jump straight into the wiring script.
+## What this repo now focuses on
 
-Suggested order:
+The main path is:
 
-1. install OpenClaw from official docs
-2. install OpenViking from upstream docs
-3. follow [docs/install-from-scratch.md](./docs/install-from-scratch.md)
-4. come back here and run the wiring/verification steps
+- **OpenClaw** uses the **official `local` mode** OpenViking plugin
+- **OpenViking** is pinned to **`0.3.3`**
+- **Python** is pinned to **`3.13`**
+- Gateway is managed only with official commands:
+  - `openclaw gateway install --force`
+  - `openclaw gateway start`
+  - `openclaw gateway restart`
 
-This split matters because “backend not installed” and “integration broken” are not the same problem.
+This repo no longer treats the old `remote`-mode wiring as the default story.
 
-## What this repo is
+---
 
-This is an **integration starter** for:
+## What we actually validated
 
-- installing or connecting OpenViking
-- wiring OpenViking into OpenClaw as the context engine
-- enabling `autoRecall` and `autoCapture`
-- verifying that the whole thing is actually alive
-- explaining what is truly working vs what still needs separate validation
+The stable baseline we verified is:
 
-## What this repo is not
+- OpenClaw plugin mode: **`local`**
+- OpenViking version: **`0.3.3`**
+- Python interpreter: **`3.13`**
+- OpenViking port: **`1933`**
+- OpenViking config path: **`~/.openviking/ov.conf`**
+- OpenViking log output: **`stderr`**
+- Persistent Python override file: **`~/.openclaw/openviking.env`**
+- Runtime auth path: **working**
+- Minimum business-path acceptance: **passed**
 
-It is **not**:
+Specifically, after the final fix, these real API routes were validated successfully:
 
-- official OpenClaw documentation
-- official OpenViking documentation
-- a fake “AI memory solved forever” landing page
-- a guaranteed all-platform installer for every environment on earth
+- `POST /api/v1/search/find` → `200`
+- `POST /api/v1/sessions/<id>/messages` → `200`
+- `POST /api/v1/sessions/<id>/commit` → `200`
 
-It is a practical field guide plus a few useful scripts.
+And extraction completion was observed in logs after commit acceptance.
 
-## Architecture
+---
 
-The high-level relationship is this:
+## The two critical fixes this repo now documents
 
-```mermaid
-flowchart LR
-    U[User / Chat Surface] --> OC[OpenClaw Runtime]
-    OC --> CE[OpenViking context-engine plugin]
-    CE --> API[OpenViking HTTP API]
-    API --> SESS[Sessions / Archives]
-    API --> MEM[Long-term Memories]
-    API --> IDX[Embedding / Retrieval]
+### Fix 1 — Persist the correct Python
 
-    OC --> WF[Workspace memory files\nMEMORY.md + memory/YYYY-MM-DD.md]
+Do **not** hand-edit the LaunchAgent plist as a long-term fix.
 
-    WF -. human-readable continuity .-> OC
-    MEM -. retrieved context .-> OC
-    SESS -. archived history / summaries .-> OC
-```
+Use:
 
-More detail: see [docs/architecture.md](./docs/architecture.md).
-Verification boundary: see [docs/verification.md](./docs/verification.md).
-Known-good example: see [docs/known-good-example.md](./docs/known-good-example.md).
-From-scratch route: see [docs/install-from-scratch.md](./docs/install-from-scratch.md).
-Failure matrix: see [docs/troubleshooting.md](./docs/troubleshooting.md).
+- `~/.openclaw/openviking.env`
 
-## Official docs you should keep nearby
-
-### OpenClaw
-
-- OpenClaw docs: <https://docs.openclaw.ai>
-- OpenClaw install docs: <https://docs.openclaw.ai/install>
-- OpenClaw installer docs: <https://docs.openclaw.ai/install/installer>
-- OpenClaw macOS docs: <https://docs.openclaw.ai/platforms/macos>
-
-### OpenViking
-
-- OpenViking GitHub: <https://github.com/volcengine/OpenViking>
-- OpenViking plugin / integration docs usually live in the upstream OpenViking repo under the OpenClaw plugin examples and install docs.
-
-This repo is meant to complement those docs, not replace them.
-
-## Choose your path
-
-There are two main routes.
-
-### Path A — You already have OpenViking running
-
-Use this when:
-
-- OpenViking is already installed
-- you already have an API key if needed
-- your server is reachable, for example at `http://127.0.0.1:1933`
-
-This is the fastest path and the one this repo currently supports best.
-
-### Path B — You do **not** have OpenViking yet
-
-Use this when:
-
-- you want a full OpenClaw + OpenViking setup from near-zero
-- you still need to install the OpenViking side first
-- you want a more step-by-step beginner flow
-
-This repo gives you the structure, links, and integration flow for that route, but the actual OpenViking installation still follows upstream docs and tooling.
-
-## Step 1 — Install OpenClaw
-
-If you do not already have OpenClaw, install it first.
-
-Use the official docs:
-
-- <https://docs.openclaw.ai/install>
-- <https://docs.openclaw.ai/install/installer>
-
-After install, make sure this works:
+Example:
 
 ```bash
-openclaw status
+OPENVIKING_PYTHON="/Users/sean/venvs/openviking-py313-v033-py313/bin/python"
 ```
 
-If that command is dead or weird, don’t keep stacking problems. Fix OpenClaw first.
+This is the key persistent fix for machines where local mode would otherwise fall back to the wrong Python.
 
-## Step 2 — Decide whether OpenViking already exists
+### Fix 2 — Do not forget plugin-side API auth
 
-### If OpenViking is already installed
+If your OpenViking server uses:
 
-Make sure you know:
+- `server.auth_mode = api_key`
 
-- the OpenViking base URL, for example `http://127.0.0.1:1933`
-- the API key if your server requires one
-- the agent ID you want to use, usually `default`
+then the OpenClaw plugin must also be given an API key through either:
 
-Also check that the server is alive:
+- `plugins.entries.openviking.config.apiKey`
+- or `OPENVIKING_API_KEY`
 
-```bash
-curl http://127.0.0.1:1933/health
+**Important:**
+
+> `ov.conf.root_api_key` is not inherited automatically by the OpenClaw plugin.
+
+This was the second major trap in real validation.
+The local service could be fully up and `/health` could be green while real plugin requests still failed with `401 Missing API Key`.
+
+---
+
+## Required OpenViking config
+
+Your `~/.openviking/ov.conf` should at least satisfy:
+
+```json
+{
+  "server": {
+    "port": 1933,
+    "auth_mode": "api_key"
+  },
+  "log": {
+    "output": "stderr"
+  }
+}
 ```
 
-### If OpenViking is not installed yet
+If auth is enabled, make sure the plugin side is configured accordingly.
 
-Go install OpenViking first using upstream docs and tooling.
+### Why `stderr` matters
 
-Recommended upstream starting points:
+In our validation, keeping:
 
-- OpenViking repo: <https://github.com/volcengine/OpenViking>
-- upstream install docs / plugin docs in that repo
+- `log.output = stdout`
 
-What you want, at minimum, before coming back here:
+could make local child-process supervision unstable.
 
-- a running OpenViking service
-- a reachable HTTP endpoint
-- service-side config handled on the OpenViking side
-- any required API key prepared
+So in this repo, `stderr` is treated as part of the verified baseline, not as a cosmetic preference.
 
-Once that exists, come back and continue with Step 3.
+---
 
-## Step 3 — Wire OpenViking into OpenClaw
+## Recommended OpenClaw plugin config shape
 
-This repo includes a simple remote-mode bootstrap:
+Your `~/.openclaw/openclaw.json` should contain the relevant shape:
 
-```bash
-git clone https://github.com/dx47618004/openclaw-openviking-one-click.git
-cd openclaw-openviking-one-click
-chmod +x scripts/install.sh scripts/verify.sh
-./scripts/install.sh --api-key YOUR_OPENVIKING_API_KEY
+```json
+{
+  "plugins": {
+    "allow": ["openviking"],
+    "entries": {
+      "openviking": {
+        "enabled": true,
+        "config": {
+          "mode": "local",
+          "configPath": "~/.openviking/ov.conf",
+          "port": 1933,
+          "agentId": "main",
+          "apiKey": "<same key expected by OpenViking server>",
+          "autoRecall": true,
+          "autoCapture": true,
+          "emitStandardDiagnostics": true,
+          "logFindRequests": true,
+          "bypassSessionPatterns": ["agent:*:cron:**"]
+        }
+      }
+    },
+    "slots": {
+      "contextEngine": "openviking"
+    }
+  }
+}
 ```
 
-If your OpenViking endpoint is not the default local one:
+What matters most:
 
-```bash
-./scripts/install.sh \
-  --api-key YOUR_OPENVIKING_API_KEY \
-  --openviking-url http://127.0.0.1:1933 \
-  --agent-id default \
-  --config ~/.openclaw/openclaw.json
-```
-
-### What the script configures
-
-It patches OpenClaw so that:
-
-- `plugins.entries.openviking.enabled = true`
-- `plugins.entries.openviking.config.mode = remote`
-- `plugins.entries.openviking.config.baseUrl = ...`
-- `plugins.entries.openviking.config.autoRecall = true`
-- `plugins.entries.openviking.config.autoCapture = true`
+- `mode = local`
+- `configPath = ~/.openviking/ov.conf`
+- `port = 1933`
+- `apiKey` is present if server auth is enabled
+- `plugins.allow` includes `openviking`
 - `plugins.slots.contextEngine = openviking`
 
-Then it restarts the OpenClaw gateway.
+---
 
-## Step 4 — Verify that it really works
+## Migration steps
+
+### Step 1 — Confirm OpenClaw plugin config is local
+
+Confirm:
+
+- `mode = local`
+- correct `configPath`
+- explicit `port`
+- `contextEngine = openviking`
+
+### Step 2 — Fix OpenViking config
+
+Make sure `~/.openviking/ov.conf` uses:
+
+- `server.port = 1933`
+- `log.output = stderr`
+
+If server auth is enabled, note that plugin auth must be configured separately.
+
+### Step 3 — Persist the correct Python
+
+Create or update:
+
+- `~/.openclaw/openviking.env`
+
+Example:
+
+```bash
+OPENVIKING_PYTHON="/Users/sean/venvs/openviking-py313-v033-py313/bin/python"
+```
+
+### Step 4 — Configure plugin-side API key when auth is enabled
+
+Use either:
+
+```bash
+openclaw config set plugins.entries.openviking.config.apiKey your-api-key
+```
+
+or provide:
+
+```bash
+OPENVIKING_API_KEY="your-api-key"
+```
+
+Again: the plugin does **not** auto-import `root_api_key` from `ov.conf`.
+
+### Step 5 — Remove the old separate OpenViking service from the main path
+
+If you previously ran OpenViking as a separate launchd service, stop using that as the main production path before switching.
+
+The point of the final state is:
+
+- OpenClaw gateway runs normally
+- the plugin starts OpenViking in official local mode
+- you are no longer depending on the old standalone service as the main path
+
+### Step 6 — Use only official gateway service commands
 
 Run:
 
 ```bash
-./scripts/verify.sh
+openclaw gateway install --force
+openclaw gateway restart
 ```
 
-And also:
+Do not replace this step with manual long-term plist editing.
+
+### Step 7 — Verify startup and runtime auth
+
+Run:
 
 ```bash
-openclaw status
+openclaw gateway status
+lsof -nP -iTCP:1933 -sTCP:LISTEN
+curl http://127.0.0.1:1933/health
 ```
 
-A useful successful state usually includes most or all of these:
+Then check logs and confirm real API routes are not returning `401`.
 
-- OpenClaw gateway is healthy
-- OpenViking plugin is loaded
-- `contextEngine` is `openviking`
-- OpenViking is reachable
-- recall and capture are enabled in config
+Expected result:
 
-Then compare your state with [docs/known-good-example.md](./docs/known-good-example.md).
+- gateway is running
+- port `1933` is listening
+- `/health` returns healthy
+- runtime routes no longer show `Missing API Key`
 
-For a more honest breakdown of what this does and does not prove, see [docs/verification.md](./docs/verification.md).
+---
 
-## What this setup actually proves
+## Quick acceptance checklist
 
-If the above checks pass, you can reasonably say:
+- [ ] `openclaw gateway status` is healthy
+- [ ] `1933` is listening
+- [ ] `curl http://127.0.0.1:1933/health` returns OK
+- [ ] OpenViking version is `0.3.3`
+- [ ] `~/.openclaw/openviking.env` exists
+- [ ] `OPENVIKING_PYTHON` points to Python 3.13
+- [ ] `~/.openviking/ov.conf` uses `log.output=stderr`
+- [ ] if `auth_mode=api_key`, plugin `apiKey` or `OPENVIKING_API_KEY` is configured
+- [ ] `POST /api/v1/search/find` succeeds
+- [ ] `POST /api/v1/sessions/<id>/messages` succeeds
+- [ ] `POST /api/v1/sessions/<id>/commit` succeeds
 
-- OpenClaw is talking to OpenViking
-- OpenViking is acting as the context engine
-- session capture is happening
-- recall hooks are in place
-- the integration path is real, not imaginary
+---
 
-## What this setup does **not** automatically prove
+## What this repo now proves well
 
-This is the part people constantly muddle.
+With the baseline above, this repo can credibly help you prove:
 
-It does **not** automatically prove that:
+- OpenClaw is configured to use OpenViking in official local mode
+- the plugin is active as the context engine
+- the local OpenViking process can be supervised stably
+- the correct Python runtime is being used
+- runtime authentication is working
+- the minimum useful business path has passed acceptance
 
-- long-term memory extraction is already producing high-value memories
-- every memory category is filling correctly
-- rerank is configured
-- your extraction quality is already “production perfect”
+---
 
-The important distinction is:
+## What this repo still does not magically prove
 
-1. plugin wired correctly
-2. session capture / recall working
-3. archive + extraction pipeline fully validated
+It does **not** automatically prove:
 
-Those are related, but they are not the same milestone.
+- long-term extraction quality in every workload
+- cross-session memory quality
+- ranking quality
+- whether retrieved memories are meaningful rather than junk
+- whether your workload-specific recall behavior is already production-perfect
 
-## Why the workspace memory files still matter
+So the honest statement is:
 
-Even with OpenViking attached, these files still matter a lot:
+> Wiring, local runtime, and minimum runtime auth/business-path acceptance are working, but memory quality and long-term extraction still need their own validation.
 
-- `MEMORY.md`
-- `memory/YYYY-MM-DD.md`
+That sentence is less sexy than marketing, but at least it is not fake.
 
-Why? Because they are:
+---
 
-- human-readable
-- easy to inspect
-- easy to curate
-- the cleanest continuity layer when you want explicit durable notes
+## Related docs in this repo
 
-So the practical architecture is not “OpenViking replaces files.”
-It is closer to:
+- [docs/architecture.md](./docs/architecture.md)
+- [docs/verification.md](./docs/verification.md)
+- [docs/troubleshooting.md](./docs/troubleshooting.md)
+- [CHANGELOG.md](./CHANGELOG.md)
+- [ROADMAP.md](./ROADMAP.md)
 
-- OpenClaw runtime
-- OpenViking as context / session / archive / memory backend
-- workspace Markdown files as the most direct human-readable memory layer
+---
 
-## Troubleshooting
+## Bottom line
 
-### OpenClaw keeps loading forever after enabling OpenViking
+If you want a stable **official local** setup, the minimum reliable baseline is:
 
-Check these first:
+- OpenViking `0.3.3`
+- Python `3.13`
+- `OPENVIKING_PYTHON` persisted in `~/.openclaw/openviking.env`
+- `log.output = stderr`
+- plugin mode `local`
+- explicit local `port`
+- plugin-side `apiKey` when server auth is enabled
 
-- is the OpenViking service alive?
-- is `baseUrl` correct?
-- is `plugins.allow` including `openviking`?
-- is `plugins.slots.contextEngine = openviking`?
-- did you accidentally break `~/.openclaw/openclaw.json`?
-
-### Recall is not happening
-
-Check:
-
-- plugin load state in `openclaw status`
-- `autoRecall`
-- OpenViking server health
-- routing / plugin logs if enabled
-- whether your test phrase was actually unique enough to prove anything
-
-### Session capture happens but memories seem empty
-
-That may be an extraction / commit issue rather than a transport issue.
-
-In plain English:
-
-- messages may already be landing in session storage
-- but structured long-term memories may still need further validation or explicit commit / extraction confirmation
-
-For the more systematic symptom matrix, read [docs/troubleshooting.md](./docs/troubleshooting.md).
-If you want to compare against a sane target state, read [docs/known-good-example.md](./docs/known-good-example.md).
-
-## Repo structure
-
-```text
-.
-├── README.md
-├── README_zh.md
-├── CHANGELOG.md
-├── ROADMAP.md
-├── docs/
-│   ├── architecture.md
-│   ├── install-from-scratch.md
-│   ├── known-good-example.md
-│   ├── troubleshooting.md
-│   └── verification.md
-└── scripts/
-    ├── install.sh
-    └── verify.sh
-```
-
-## Roadmap
-
-See [ROADMAP.md](./ROADMAP.md).
-
-Short version:
-
-- better from-scratch flow
-- Linux-tested instructions
-- Docker / Compose examples
-- more verification artifacts
-- a clearer extraction-validation helper
-- screenshots / status snapshots from a known-good setup
-
-## License
-
-MIT, for the repo contents.
+That combination is not hypothetical anymore.
+It has now been driven through real runtime verification and minimum acceptance.

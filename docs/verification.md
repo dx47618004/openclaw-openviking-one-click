@@ -1,10 +1,11 @@
 # OpenClaw + OpenViking Verification Guide
 
-This guide exists because people keep mixing up three different milestones:
+This guide exists because people keep mixing up four different milestones:
 
 1. **the plugin is wired correctly**
-2. **session capture / recall are working**
-3. **long-term extraction is producing useful memory artifacts**
+2. **the local OpenViking service actually starts**
+3. **runtime requests are authenticated correctly**
+4. **session capture / recall / extraction are working**
 
 Those are related, but they are **not** the same thing.
 
@@ -23,84 +24,146 @@ You want to confirm:
 - the `openviking` plugin exists and is enabled
 - `plugins.allow` includes `openviking`
 - `plugins.slots.contextEngine = openviking`
-- `mode = remote`
-- `baseUrl` points to a live OpenViking endpoint
+- `mode = local`
+- `configPath` points to the real `~/.openviking/ov.conf`
+- `port` is explicitly set
 - `autoRecall = true`
 - `autoCapture = true`
 
 This is the minimum “the cable is plugged in” layer.
 
-### Layer 2 — Capture and recall are alive
+### Layer 2 — Local service actually starts
 
-At this layer, you are proving the integration is doing something real during usage.
+At this layer, you are proving the plugin can launch OpenViking in official local mode.
+
+You want evidence that:
+
+- `127.0.0.1:<port>` is listening
+- `/health` responds
+- the child process is stable after gateway restart
+- OpenViking is using the intended Python runtime
+
+This is the “the engine is on” layer.
+
+### Layer 3 — Runtime requests are authenticated
+
+At this layer, you are proving that OpenClaw is not just talking to `/health`, but can also use real API routes.
+
+You want evidence that:
+
+- `/api/v1/sessions/.../context` is not returning `401`
+- `/api/v1/search/find` is not returning `401`
+- `/api/v1/sessions/.../messages` is not returning `401`
+- `/api/v1/sessions/.../commit` is not returning `401`
+
+This matters because `/health` can be green while the real integration is still dead.
+
+### Layer 4 — Capture / recall / extraction are alive
+
+At this layer, you are proving the integration is doing something useful during usage.
 
 You want evidence that:
 
 - conversation/session data is being captured
 - recall hooks are active during later turns
-- OpenClaw can actually reach OpenViking during runtime
+- session writes succeed
+- commit/extraction paths succeed
+- later turns can retrieve useful context
 
-This is the “not just config, actually alive” layer.
-
-### Layer 3 — Long-term extraction is validated
-
-At this layer, you are proving that OpenViking is not just storing sessions, but also extracting durable, retrievable long-term memories in a way you trust.
-
-That may require:
-
-- time for extraction to run
-- server-side extraction jobs or commit behavior
-- checking the OpenViking side directly
-- validating the retrieved memories are meaningful rather than junk
-
-This is the hardest layer, and people bullshit it the most.
+This is the “not just alive, actually helpful” layer.
 
 ---
 
 ## Quick Verification Checklist
 
-Run:
+Run these in order:
 
 ```bash
-./scripts/verify.sh
+openclaw gateway status
+lsof -nP -iTCP:1933 -sTCP:LISTEN
+curl http://127.0.0.1:1933/health
 ```
 
-Then manually review the output.
+Then inspect the relevant config and logs.
 
 A decent result should show most or all of the following:
 
 - OpenClaw status prints without obvious failure
 - `openviking` plugin config is present
 - `contextEngine` is `openviking`
+- OpenViking local port is listening
 - OpenViking health endpoint responds
-- OpenViking ping endpoint responds
 - recall/capture flags are on in config
+- no `401 Missing API Key` errors in runtime logs
 
-If you only have that much, then congratulations: **wiring is probably correct**.
+If you only have the first five bullets, then congratulations: **local startup is probably correct**.
 
-Do **not** oversell that as “production memory fully solved.”
+Do **not** oversell that as “runtime memory fully working.”
 
 ---
 
 ## Recommended Manual Test Flow
 
-### Test A — Health and config
+### Test A — Config shape
 
-Check these first:
-
-```bash
-openclaw status
-./scripts/verify.sh
-```
+Check the relevant OpenClaw config block.
 
 What you want:
 
 - no broken JSON
-- OpenClaw gateway alive
-- OpenViking endpoint reachable
-- context engine set to `openviking`
+- `mode = local`
+- correct `configPath`
+- explicit `port`
+- `contextEngine = openviking`
+- `autoRecall = true`
+- `autoCapture = true`
 
-### Test B — Session capture
+If your OpenViking server config uses:
+
+- `server.auth_mode = api_key`
+
+then you also need:
+
+- `plugins.entries.openviking.config.apiKey`
+
+Local mode does **not** magically remove auth requirements.
+
+### Test B — Local service startup
+
+Check:
+
+```bash
+lsof -nP -iTCP:1933 -sTCP:LISTEN
+curl http://127.0.0.1:1933/health
+```
+
+What you want:
+
+- the port is listening
+- `/health` returns cleanly
+
+This proves startup, not full runtime correctness.
+
+### Test C — Authentication path
+
+Now inspect the logs for real API calls.
+
+Good signs:
+
+- no `401`
+- no `Missing API Key`
+- no `UNAUTHENTICATED`
+
+Bad signs:
+
+- `/health` is `200`
+- but `/api/v1/search/find` returns `401`
+- or `/api/v1/sessions/.../context` returns `401`
+- or session writes / commit return `401`
+
+That means startup succeeded, but the plugin client is still missing auth.
+
+### Test D — Session capture and recall
 
 Have a short conversation with OpenClaw after enabling the plugin.
 
@@ -108,7 +171,8 @@ Example pattern:
 
 1. send a message with a unique phrase
 2. continue for 1-2 more turns
-3. later inspect whether the session exists on the OpenViking side
+3. ask for the phrase back later
+4. inspect whether logs show successful search/session writes instead of 401s
 
 Good unique phrase example:
 
@@ -116,26 +180,12 @@ Good unique phrase example:
 
 Why unique? Because otherwise you end up searching generic garbage and then wondering why nothing is obvious.
 
-### Test C — Recall behavior
+### Test E — Long-term extraction
 
-After a few turns, ask a follow-up that requires remembering the earlier unique phrase.
-
-Example:
-
-> “What was the weird verification phrase I told you earlier?”
-
-If recall is working, you should see behavior consistent with the previous turn being available through the integration path.
-
-This still does **not** prove long-term extraction. It only proves recall/capture are not dead.
-
-### Test D — Long-term extraction
-
-This step depends more on the OpenViking side.
-
-You need to confirm things like:
+You still need to confirm things like:
 
 - does OpenViking show extracted memories, not just sessions?
-- does extraction run automatically or require explicit commit/trigger behavior?
+- does extraction run automatically or require explicit commit behavior?
 - are memories retrievable later by semantic search?
 - are the extracted items useful, clean, and attributable?
 
@@ -143,36 +193,35 @@ If this step is unclear, say so honestly.
 
 A correct statement is:
 
-> “The OpenClaw ↔ OpenViking wiring is working, but long-term extraction still needs separate validation.”
+> “The OpenClaw ↔ OpenViking local wiring is working, but long-term extraction still needs separate validation.”
 
-That sentence is boring, but at least it’s not bullshit.
+That sentence is boring, but at least it is not bullshit.
 
 ---
 
-## What `verify.sh` Proves Well
+## What a Green `/health` Does and Does Not Prove
 
-The current script is good at checking:
+A green `/health` proves:
 
-- OpenClaw can start and report status
-- config contains the expected OpenViking wiring
-- target OpenViking URL is reachable
-- basic HTTP health/ping checks respond
+- OpenViking is up
+- the chosen port is reachable
+- local spawn is probably working
 
-That is useful.
+A green `/health` does **not** prove:
 
-It is **not** enough to prove:
+- the plugin client has the right API key
+- session reads work
+- search works
+- session writes work
+- commit/extraction works
 
-- extraction quality
-- retention quality
-- ranking quality
-- cross-session memory quality
-- whether your prompts actually benefit from the stored memory
+If the service runs with `auth_mode=api_key`, then runtime requests can still fail with `401` even while `/health` is healthy.
 
 ---
 
 ## Failure Patterns
 
-### 1. `openclaw status` is weird or broken
+### 1. `openclaw gateway status` is weird or broken
 
 That usually means one of these:
 
@@ -183,27 +232,37 @@ That usually means one of these:
 
 Fix that before doing anything clever.
 
-### 2. Health endpoint fails
+### 2. Local port is not listening
 
 Usually:
 
-- wrong `baseUrl`
-- OpenViking service not running
-- local/remote network issue
-- server needs auth you didn’t provide correctly
+- wrong Python runtime
+- wrong `configPath`
+- wrong `port`
+- OpenViking child process crashed immediately
+- `log.output=stdout` is destabilizing local spawn on your machine
 
-### 3. Config looks correct but recall still looks dead
+### 3. `/health` is green but runtime still feels dead
+
+Usually:
+
+- the plugin client is missing `apiKey`
+- OpenViking server is running with `auth_mode=api_key`
+- session/context/search/commit routes are all returning `401`
+
+This is a real integration failure, not a cosmetic warning.
+
+### 4. Config looks correct but recall still looks dead
 
 Possible causes:
 
-- plugin failed to load even though config exists
-- OpenViking is reachable intermittently
-- session capture path works but retrieval path is failing
+- runtime auth is still failing
+- session capture works partially but retrieval path is failing
 - your test was too vague to tell whether recall happened
 
 Use a unique phrase. Don’t test memory with mush.
 
-### 4. Sessions exist but durable memory is poor or empty
+### 5. Sessions exist but durable memory is poor or empty
 
 That is often **not** a transport problem.
 
@@ -221,11 +280,11 @@ It may be:
 
 ### Conservative success statement
 
-> OpenClaw is successfully wired to OpenViking in remote mode, with `openviking` set as the context engine and recall/capture enabled.
+> OpenClaw is successfully wired to OpenViking in local mode, with `openviking` set as the context engine and recall/capture enabled.
 
 ### Stronger success statement
 
-> OpenClaw is successfully talking to OpenViking, session capture is happening, and runtime recall behavior appears to be working.
+> OpenClaw is successfully launching OpenViking locally, runtime requests are authenticated, session capture is happening, and recall behavior appears to be working.
 
 ### Statement that still needs separate proof
 
@@ -239,9 +298,11 @@ Do not say that unless you actually checked it.
 
 If you want this repo to look credible rather than hand-wavey, show evidence like:
 
-- sanitized `openclaw status` output
-- `verify.sh` output
-- config snippet showing `contextEngine = openviking`
+- sanitized `openclaw gateway status` output
+- `lsof` output for the local OpenViking port
+- `/health` output
+- config snippet showing `mode = local` and `contextEngine = openviking`
+- if auth is enabled, evidence that runtime routes are not returning `401`
 - a tiny recall test transcript
 - a separate note on what still remains unproven
 
