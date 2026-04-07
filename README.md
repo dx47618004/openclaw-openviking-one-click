@@ -1,4 +1,4 @@
-# Install OpenViking for OpenClaw (Official Local Mode)
+# Install OpenViking for OpenClaw
 
 [中文说明 / Chinese README](./README_zh.md)
 

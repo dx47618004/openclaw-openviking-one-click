@@ -1,4 +1,4 @@
-# 为 OpenClaw 安装 OpenViking（Official Local Mode）
+# 为 OpenClaw 安装 OpenViking
 
 [English README](./README.md)
 
